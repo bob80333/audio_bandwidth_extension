@@ -13,11 +13,4 @@ giant command to run all experiments:
 python train_audio_unet_model.py baseline_
 python train_audio_unet_model.py --accumulate_n 2 --step 2 batch2x_
 python train_audio_unet_model.py --accumulate_n 4 --step 4 batch4x_
-python train_audio_unet_model.py --accumulate_n 2 --batch_size 16 --segment_len_multiplier 2 --step 2 seqlen2x_
-python train_audio_unet_model.py --accumulate_n 4 --batch_size 8 --segment_len_multiplier 4 --step 4 seqlen4x_
-python train_audio_unet_model.py --accumulate_n 4 --batch_size 16 --segment_len_multiplier 2 --step 4 seqlen2x_batch2x_
-python train_audio_unet_model.py --accumulate_n 8 --batch_size 8 --segment_len_multiplier 4 --step 8 seqlen4x_batch2x_
-python train_audio_unet_model.py --accumulate_n 8 --batch_size 16 --segment_len_multiplier 2 --step 8 seqlen2x_batch4x_
-
-can't do more than 8x fewer steps than baseline due to evaluation every 1k steps and 1k only divides into 8 evenly
-16x fewer wouldn't work as evaluation steps wouldn't divide evenly
+python train_audio_unet_model.py --accumulate_n 8 --step 8 batch8x_
