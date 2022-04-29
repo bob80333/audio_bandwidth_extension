@@ -1,0 +1,128 @@
+import torch
+from torch.utils.data import DataLoader
+from data import AudioDataset
+from hybrid_unet import get_model
+from asteroid import losses
+import numpy as np
+import torchaudio
+import torch_ema
+from tqdm import tqdm
+
+N_TRAIN_STEPS = 50_000
+BATCH_SIZE = 16
+ACCUMULATE_N = 2
+EVAL_EVERY = 1000
+START_EMA = 2_000
+
+
+def infinite_dataloader(dataloader):
+    while True:
+        for batch in dataloader:
+            yield batch
+
+
+if __name__ == '__main__':
+
+    model = get_model(device="cuda")
+    model = model.cuda()
+
+    # clean, then noisy
+    # this will be the order the dataloader returns the audio in
+    train_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0,
+                              test=False, segment_len=48000 * 2, dual_channel=False)
+
+    dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+
+    eval_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_testset_wav",
+                             segment_len=48000 * 10, test=True, dual_channel=False)
+
+    eval_dataloader = DataLoader(eval_data, batch_size=8, num_workers=3)
+
+    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+
+    loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
+    loss_fn = loss_fn.cuda()
+
+    sisdr_fn = losses.sdr.PairwiseNegSDR(sdr_type='sisdr')
+
+    train_dataloader = infinite_dataloader(dataloader)
+
+    best_sisdr = -100
+    best_sisdr_ema = -100
+
+    ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
+
+    for i in tqdm(range(N_TRAIN_STEPS + 1)):
+        for j in range(ACCUMULATE_N):
+            batch = next(train_dataloader)
+
+            clean, degraded = batch
+            clean = clean.cuda()
+            degraded = degraded.cuda()
+
+            estimated_clean = model(degraded)
+
+            loss = loss_fn(estimated_clean, clean).mean()
+            loss.backward()
+        optimizer.step()
+        optimizer.zero_grad(set_to_none=True)
+
+        if i % 100 == 0:
+            print("Loss: ", loss.item())
+
+        ema_model.update()
+
+        if i % EVAL_EVERY == 0:
+            with torch.inference_mode():
+                sisdr_losses = []
+                for batch in tqdm(eval_dataloader):
+                    clean, degraded, start_idx, end_idx = batch
+                    clean = clean.cuda()
+                    degraded = degraded.cuda()
+
+                    estimated_clean = model(degraded)
+
+                    for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
+                        est_clean = est_clean[:, start:end].unsqueeze(0)
+                        real_clean = real_clean[:, start:end].unsqueeze(0)
+                        sisdr_loss = -sisdr_fn(est_clean, real_clean)
+                        sisdr_losses.append(sisdr_loss.squeeze().item())
+
+                print("SI-SDR", np.mean(sisdr_losses))
+
+                if np.mean(sisdr_losses) > best_sisdr:
+                    best_sisdr = np.mean(sisdr_losses)
+                    torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
+                               "best_hybrid_unet_model_bandwidth_extension.pt")
+
+                torchaudio.save("sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(), 48000)
+                sisdr_losses_ema = []
+                with ema_model.average_parameters():
+                    for batch in tqdm(eval_dataloader):
+                        clean, degraded, start_idx, end_idx = batch
+                        clean = clean.cuda()
+                        degraded = degraded.cuda()
+
+                        estimated_clean = model(degraded)
+
+                        for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
+                            est_clean = est_clean[:, start:end].unsqueeze(0)
+                            real_clean = real_clean[:, start:end].unsqueeze(0)
+                            sisdr_loss = -sisdr_fn(est_clean, real_clean)
+                            sisdr_losses_ema.append(sisdr_loss.squeeze().item())
+
+                    print("SI-SDR EMA", np.mean(sisdr_losses_ema))
+
+                    if np.mean(sisdr_losses_ema) > best_sisdr_ema:
+                        best_sisdr_ema = np.mean(sisdr_losses_ema)
+                        torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
+                                   "best_hybrid_unet_ema_bandwidth_extension.pt")
+
+                if i == 0:
+                    torchaudio.save("sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(), 48000)
+                    torchaudio.save("sample_clean.wav".format(i), clean[-1][:, start:end].cpu(), 48000)
+                torchaudio.save("sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(), 48000)
+
+        if i == START_EMA:
+            # restart EMA
+            ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
