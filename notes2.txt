@@ -14,3 +14,25 @@ python train_audio_unet_model.py baseline_
 python train_audio_unet_model.py --accumulate_n 2 --step 2 batch2x_
 python train_audio_unet_model.py --accumulate_n 4 --step 4 batch4x_
 python train_audio_unet_model.py --accumulate_n 8 --step 8 batch8x_
+
+results:
+very similar, though batch 8x pulls ahead of baseline at the end in si-sdr
+the other 2 do not improve over baseline si-sdr wise
+however, for validation loss ema the order is (best to worst): baseline, batch2x, batch4x, batch8x
+for validation loss, the order is (best to worst): batch4x, batch2x, batch8x, baseline
+
+to understand better, run the same experiment for 2.5x the training steps
+
+same experiment but with 25k steps:
+
+python train_audio_unet_model.py baseline_25k_ --n_train_steps 25000
+python train_audio_unet_model.py --accumulate_n 2 --step 2 batch2x_25k_ --n_train_steps 25000
+python train_audio_unet_model.py --accumulate_n 4 --step 4 batch4x_25k_ --n_train_steps 25000
+python train_audio_unet_model.py --accumulate_n 8 --step 8 batch8x_25k_ --n_train_steps 25000
+
+50k steps:
+
+python train_audio_unet_model.py baseline_50k_ --n_train_steps 50000
+python train_audio_unet_model.py --accumulate_n 2 --step 2 batch2x_50k_ --n_train_steps 50000
+python train_audio_unet_model.py --accumulate_n 4 --step 4 batch4x_50k_ --n_train_steps 50000
+python train_audio_unet_model.py --accumulate_n 8 --step 8 batch8x_50k_ --n_train_steps 50000

@@ -112,7 +112,7 @@ if __name__ == '__main__':
         optimizer.step()
         optimizer.zero_grad(set_to_none=True)
 
-        if i % 10 == 0:
+        if i % 8 == 0:
             wandb.log({"loss": loss_val}, step=i)
 
         ema_model.update()
