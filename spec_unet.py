@@ -27,11 +27,14 @@ class ResidualUnit(nn.Module):
 
 class SkipConnection(nn.Module):
 
-    def __init__(self, channels):
+    def __init__(self, num_channels, output_channels=None):
         super().__init__()
 
+        if output_channels is None:
+            output_channels = num_channels
+
         layers = [
-            nn.utils.weight_norm(nn.Conv2d(channels, channels, kernel_size=(1, 1))),
+            nn.utils.weight_norm(nn.Conv2d(num_channels, output_channels, kernel_size=(1, 1))),
         ]
 
         self.layers = nn.Sequential(*layers)
@@ -89,13 +92,17 @@ class DecoderBlock(nn.Module):
 
 class SpecUNet(nn.Module):
 
-    def __init__(self, base_channels=32, input_output_channels=2, n_res_units=3, device="cpu"):
+    def __init__(self, base_channels=32, input_channels=2, output_channels=2, n_res_units=3, device="cpu"):
         super().__init__()
 
         self.window_size = 2400
         self.hop_size = 600
         self.n_fft = 2400
         self.window = torch.hann_window(self.window_size, device=device)
+
+        # due to magnitue and phase components of the STFT we need to muliply input and output channels by 2
+        self.input_channels = input_channels * 2
+        self.output_channels = output_channels * 2
 
         # 16 is max downsampling of model
         self.chunk_multiple = self.hop_size * 16
@@ -108,12 +115,12 @@ class SpecUNet(nn.Module):
 
         self.input_conv = nn.Sequential(
             nn.utils.weight_norm(
-                nn.Conv2d(input_output_channels, base_channels, kernel_size=(7, 7), padding=3,
+                nn.Conv2d(self.input_channels, base_channels, kernel_size=(7, 7), padding=3,
                           padding_mode='replicate')),
             nn.ELU(inplace=True)
         )
 
-        self.input_skip = SkipConnection(input_output_channels)
+        self.input_skip = SkipConnection(self.input_channels,  self.output_channels)
 
         self.encoder_blocks = nn.ModuleList([
             EncoderBlock(base_channels, stride=2, n_res_units=n_res_units),
@@ -146,7 +153,7 @@ class SpecUNet(nn.Module):
 
         self.out_conv = nn.Sequential(
             nn.utils.weight_norm(
-                nn.Conv2d(base_channels, input_output_channels, kernel_size=(7, 7), padding=3,
+                nn.Conv2d(base_channels,  self.output_channels, kernel_size=(7, 7), padding=3,
                           padding_mode='replicate'))
         )
 
@@ -212,17 +219,19 @@ class SpecUNet(nn.Module):
         # example input: batch [8, 1, 18600] 18600 samples (31 * 600), 600 is hop size, window/fft is 2400
         # example spec shape: [8, 1201, 32, 2]
 
-        spec_input = spec[:, :768]  # spec input shape [8, 768, 32, 2]
-        spec_input = spec_input.permute(0, 3, 1, 2)  # [8, 2, 768, 32]
-        spec_leftover = spec[:, 768:]  # [8, 433, 32, 2]
+        # take last 1088 (1024 + 64) channels instead of first 1088 channels
+        # this modification makes more sense for audio bandwidth extension, where we need to work with higher frequencies
+        spec_input = spec[:, 113:]  # spec input shape [8, 1088, 32, 2]
+        spec_input = spec_input.permute(0, 3, 1, 2)  # [8, 2, 1088, 32]
+        spec_leftover = spec[:, :113]  # [8, 113, 32, 2]
 
         return n_batch, n_channel, spec_input, spec_leftover, padding
 
     def istft(self, n_batch, n_channel, spec_output, spec_leftover, padding):
-        # spec_output shape: [8, 2, 768, 32]
-        spec_output = spec_output.permute(0, 2, 3, 1)  # shape of [8, 768, 32, 2]
+        # spec_output shape: [8, 2, 1088, 32]
+        spec_output = spec_output.permute(0, 2, 3, 1)  # shape of [8, 1088, 32, 2]
 
-        spec = torch.cat([spec_output, spec_leftover], dim=1)  # shape of [8, 1201, 32, 2]
+        spec = torch.cat([spec_leftover, spec_output], dim=1)  # shape of [8, 1201, 32, 2]
 
         audio = torch.istft(spec, self.n_fft, self.hop_size, self.window_size, self.window)
 
@@ -237,8 +246,8 @@ class SpecUNet(nn.Module):
         return audio
 
 
-def get_model(width=16, device="cpu"):
-    return SpecUNet(width, 2, n_res_units=3, device=device)
+def get_model(width=16, device="cpu", output_channels=1):
+    return SpecUNet(width, input_channels=1, output_channels=output_channels, n_res_units=3, device=device)
 
 
 if __name__ == '__main__':

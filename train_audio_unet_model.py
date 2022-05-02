@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
 
-    wandb.config = {
+    wandb.config.update({
         "learning_rate": 3e-4,
         "batch_size": BATCH_SIZE,
         "accumulate_n": ACCUMULATE_N,
@@ -77,8 +77,11 @@ if __name__ == '__main__':
         "step_size": STEP,
         "start_ema": START_EMA,
         "eval_every": EVAL_EVERY,
-        "segment_len_multiplier": SEGMENT_LEN_MULTIPLIER
-    }
+        "segment_len_multiplier": SEGMENT_LEN_MULTIPLIER,
+        "model_type": "audio_unet",
+        "prefix": args.prefix,
+        "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad)
+    })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
     loss_fn = loss_fn.cuda()

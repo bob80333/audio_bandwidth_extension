@@ -36,3 +36,9 @@ python train_audio_unet_model.py baseline_50k_ --n_train_steps 50000
 python train_audio_unet_model.py --accumulate_n 2 --step 2 batch2x_50k_ --n_train_steps 50000
 python train_audio_unet_model.py --accumulate_n 4 --step 4 batch4x_50k_ --n_train_steps 50000
 python train_audio_unet_model.py --accumulate_n 8 --step 8 batch8x_50k_ --n_train_steps 50000
+
+The experiment, but with hybrid model using last 1088 ffts for the spec unet
+python train_hybrid_model.py baseline_
+python train_hybrid_model.py --accumulate_n 2 --step 2 batch2x_
+python train_hybrid_model.py --accumulate_n 4 --step 4 batch4x_
+python train_hybrid_model.py --accumulate_n 8 --step 8 batch8x_

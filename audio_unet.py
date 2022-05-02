@@ -30,11 +30,14 @@ class ResidualUnit(nn.Module):
 
 class SkipConnection(nn.Module):
 
-    def __init__(self, channels):
+    def __init__(self, num_channels, output_channels=None):
         super().__init__()
 
+        if output_channels is None:
+            output_channels = num_channels
+
         layers = [
-            nn.utils.weight_norm(nn.Conv1d(channels, channels, kernel_size=(1,))),
+            nn.utils.weight_norm(nn.Conv1d(num_channels, output_channels, kernel_size=(1,))),
         ]
 
         self.layers = nn.Sequential(*layers)
@@ -96,17 +99,17 @@ class DecoderBlock(nn.Module):
 
 class AudioUNet(nn.Module):
 
-    def __init__(self, base_channels=32, input_output_channels=1, n_res_units=3):
+    def __init__(self, base_channels=32, input_channels=1, output_channels=1, n_res_units=3):
         super().__init__()
 
         self.input_conv = nn.Sequential(
             nn.utils.weight_norm(
-                nn.Conv1d(input_output_channels, base_channels, kernel_size=(7,), padding=3, padding_mode='replicate')),
+                nn.Conv1d(input_channels, base_channels, kernel_size=(7,), padding=3, padding_mode='replicate')),
             # nn.GroupNorm(16, base_channels),
             nn.ELU(inplace=True)
         )
 
-        self.input_skip = SkipConnection(input_output_channels)
+        self.input_skip = SkipConnection(input_channels, output_channels)
 
         self.encoder_blocks = nn.ModuleList([
             EncoderBlock(base_channels, stride=2, n_res_units=n_res_units),
@@ -144,7 +147,7 @@ class AudioUNet(nn.Module):
 
         self.out_conv = nn.Sequential(
             nn.utils.weight_norm(
-                nn.Conv1d(base_channels, input_output_channels, kernel_size=(7,), padding=3, padding_mode='replicate'))
+                nn.Conv1d(base_channels, output_channels, kernel_size=(7,), padding=3, padding_mode='replicate'))
         )
 
     def forward(self, input):
@@ -169,8 +172,8 @@ class AudioUNet(nn.Module):
         return x + self.input_skip(input)
 
 
-def get_model(width=16):
-    return AudioUNet(width, 1, n_res_units=3)
+def get_model(width=16, input_channels=1):
+    return AudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=3)
 
 
 if __name__ == '__main__':

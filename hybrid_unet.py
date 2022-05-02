@@ -17,7 +17,9 @@ class HybridUnet(nn.Module):
 
 
 def get_model(width=16, device='cpu'):
-    return HybridUnet(get_spec_unet(width=width, device=device), get_audio_unet(width=width))
+    return HybridUnet(get_spec_unet(width=width, device=device),
+                      get_audio_unet(width=width))
+
 
 if __name__ == '__main__':
     model = get_model()
