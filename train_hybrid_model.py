@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.995)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.999)
 
     wandb.config.update({
         "learning_rate": LEARNING_RATE,
@@ -86,7 +86,7 @@ if __name__ == '__main__':
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
-        "gamma": 0.995,
+        "gamma": 0.999,
         "ema_decay": 0.999,
     })
 
@@ -122,7 +122,7 @@ if __name__ == '__main__':
         optimizer.zero_grad(set_to_none=True)
 
         if i % 8 == 0:
-            wandb.log({"loss": loss_val, "lr": optimizer.param_groups[0]['lr']}, step=i)
+            wandb.log({"loss": loss_val, "lr": scheduler.get_last_lr()[0]}, step=i)
 
         # step scheduler after every step, and after logging lr
         scheduler.step()
