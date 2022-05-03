@@ -95,7 +95,7 @@ if __name__ == '__main__':
 
     ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
 
-    for i in tqdm(range(N_TRAIN_STEPS + 1)):
+    for i in tqdm(range(0, N_TRAIN_STEPS + 1, STEP)):
         loss_val = 0
         for j in range(ACCUMULATE_N):
             batch = next(train_dataloader)
