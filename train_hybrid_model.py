@@ -48,6 +48,7 @@ if __name__ == '__main__':
     EVAL_EVERY = args.eval_every
     START_EMA = args.start_ema
     STEP = args.step
+    LEARNING_RATE = args.learning_rate
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
@@ -68,7 +69,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.999)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9995)
 
     wandb.config.update({
         "learning_rate": LEARNING_RATE,
@@ -86,7 +87,7 @@ if __name__ == '__main__':
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
-        "gamma": 0.999,
+        "gamma": 0.9995,
         "ema_decay": 0.999,
     })
 

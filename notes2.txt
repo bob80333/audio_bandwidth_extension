@@ -56,6 +56,6 @@ using exponential LR decay instead, tuning lr as well
 
 python train_hybrid_model.py baseline_explr_
 python train_hybrid_model.py 10x_lr_explr_ --learning_rate 3e-3
-python train_hybrid_model.py 1/10x_lr_explr_ --learning_rate 3e-5
+python train_hybrid_model.py 0.1x_lr_explr_ --learning_rate 3e-5
 python train_hybrid_model.py 3x_lr_explr_ --learning_rate 1.2e-3
-python train_hybrid_model.py 1/3x_lr_explr_ --learning_rate 1e-4
+python train_hybrid_model.py 0.33x_lr_explr_ --learning_rate 1e-4
