@@ -18,6 +18,7 @@ EVAL_EVERY = 1000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
+LEARNING_RATE = 3e-4
 
 
 def infinite_dataloader(dataloader):
@@ -36,6 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('--start_ema', type=int, default=START_EMA)
     parser.add_argument('--step', type=int, default=STEP)
     parser.add_argument('--segment_len_multiplier', type=int, default=SEGMENT_LEN_MULTIPLIER)
+    parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -64,10 +66,12 @@ if __name__ == '__main__':
 
     eval_dataloader = DataLoader(eval_data, batch_size=BATCH_SIZE, num_workers=3)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=3e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.995)
 
     wandb.config.update({
-        "learning_rate": 3e-4,
+        "learning_rate": LEARNING_RATE,
         "batch_size": BATCH_SIZE,
         "accumulate_n": ACCUMULATE_N,
         "train_segment_len": 48000 * 2 * SEGMENT_LEN_MULTIPLIER,
@@ -80,7 +84,10 @@ if __name__ == '__main__':
         "segment_len_multiplier": SEGMENT_LEN_MULTIPLIER,
         "model_type": "hybrid_unet",
         "prefix": args.prefix,
-        "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad)
+        "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
+        "lr_decay": "exponential",
+        "gamma": 0.995,
+        "ema_decay": 0.999,
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -115,11 +122,16 @@ if __name__ == '__main__':
         optimizer.zero_grad(set_to_none=True)
 
         if i % 8 == 0:
-            wandb.log({"loss": loss_val}, step=i)
+            wandb.log({"loss": loss_val, "lr": optimizer.param_groups[0]['lr']}, step=i)
 
+        # step scheduler after every step, and after logging lr
+        scheduler.step()
+        # step ema after every step
         ema_model.update()
 
+        # evaluate every EVAL_EVERY steps
         if i % EVAL_EVERY == 0:
+            # torch.inference_mode() should be slightly faster than torch.no_grad()
             with torch.inference_mode():
                 sisdr_losses = []
                 val_losses = []

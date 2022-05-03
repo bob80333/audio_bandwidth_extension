@@ -42,3 +42,20 @@ python train_hybrid_model.py baseline_
 python train_hybrid_model.py --accumulate_n 2 --step 2 batch2x_
 python train_hybrid_model.py --accumulate_n 4 --step 4 batch4x_
 python train_hybrid_model.py --accumulate_n 8 --step 8 batch8x_
+
+The experiment, same as last, but using cosine decay learning rate
+
+python train_hybrid_model.py baseline_cosine_
+python train_hybrid_model.py --accumulate_n 2 --step 2 batch2x_cosine_
+python train_hybrid_model.py --accumulate_n 4 --step 4 batch4x_cosine_
+python train_hybrid_model.py --accumulate_n 8 --step 8 batch8x_cosine_
+
+oops, cosine decay in pytorch actually goes up and down, not just down
+
+using exponential LR decay instead, tuning lr as well
+
+python train_hybrid_model.py baseline_explr_
+python train_hybrid_model.py 10x_lr_explr_ --learning_rate 3e-3
+python train_hybrid_model.py 1/10x_lr_explr_ --learning_rate 3e-5
+python train_hybrid_model.py 3x_lr_explr_ --learning_rate 1.2e-3
+python train_hybrid_model.py 1/3x_lr_explr_ --learning_rate 1e-4
