@@ -59,3 +59,27 @@ python train_hybrid_model.py 10x_lr_explr_ --learning_rate 3e-3
 python train_hybrid_model.py 0.1x_lr_explr_ --learning_rate 3e-5
 python train_hybrid_model.py 3x_lr_explr_ --learning_rate 1.2e-3
 python train_hybrid_model.py 0.33x_lr_explr_ --learning_rate 1e-4
+
+try out best lr with mixed precision:
+
+python train_hybrid_model.py 10x_lr_explr_ --learning_rate 3e-3 --use_amp True
+
+unfortunately mixed precision was much slower to train than the baseline, though it did reduce memory usage
+the trade-off is not worth it, as if I need a larger batch size I can simply increase gradient accumulation
+meanwhile the speed was the main factor in adopting it, and it came up far short
+
+however, I did activate cudnn benchmark, and that gave a speedup of ~8%, which is nice
+
+Now testing a change that allows the spec unet to output more channels than went into it, to allow more intermediate
+channels between the spec unet and the audio unet, hopefully this will improve the performance.
+It will not cost much more memory or speed hopefully, it was quite cheap parameters wise to increase
+intermediate channels from 1 to 8.
+
+python train_hybrid_model.py 8x_intermediate_channels_
+
+unfortunately ran into some bugs, will fix later
+
+for now, running with the best parameters found so far, and using the hybrid model
+batch 64, lr 3e-3, n_train_steps 50k, gamma 0.9998 (had to adjust it to have a longer decay when training for so much longer)
+
+python train_hybrid_model.py best_v2_

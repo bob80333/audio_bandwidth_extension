@@ -11,14 +11,14 @@ import wandb
 
 import argparse
 
-N_TRAIN_STEPS = 10_000
+N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 32
-ACCUMULATE_N = 1
+ACCUMULATE_N = 2
 EVAL_EVERY = 1000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
-LEARNING_RATE = 3e-4
+LEARNING_RATE = 3e-3 # experiments found this to be much better than 3e-4
 
 
 def infinite_dataloader(dataloader):
@@ -28,6 +28,8 @@ def infinite_dataloader(dataloader):
 
 
 if __name__ == '__main__':
+    torch.backends.cudnn.benchmark = True
+
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--batch_size', type=int, default=BATCH_SIZE)
@@ -69,7 +71,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9995)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9998)
 
     wandb.config.update({
         "learning_rate": LEARNING_RATE,
@@ -87,7 +89,7 @@ if __name__ == '__main__':
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
-        "gamma": 0.9995,
+        "gamma": 0.9998,
         "ema_decay": 0.999,
     })
 
