@@ -15,17 +15,17 @@ class ResidualUnit(nn.Module):
             nn.utils.weight_norm(
                 nn.Conv2d(num_channels, num_channels, kernel_size=(3, 3), padding=1, padding_mode='replicate')),
             nn.ELU(inplace=True),
-            nn.utils.weight_norm(nn.Conv1d(num_channels, num_channels, kernel_size=(1, 1))),
+            nn.utils.weight_norm(nn.Conv2d(num_channels, num_channels, kernel_size=(1, 1))),
             nn.ELU(inplace=True),
         )
 
-        self.skip = SkipConnection(num_channels)
+        self.skip = SkipConnection2d(num_channels)
 
     def forward(self, x):
         return self.layers(x) + self.skip(x)
 
 
-class SkipConnection(nn.Module):
+class SkipConnection2d(nn.Module):
 
     def __init__(self, num_channels, output_channels=None):
         super().__init__()
@@ -92,7 +92,7 @@ class DecoderBlock(nn.Module):
 
 class SpecUNet(nn.Module):
 
-    def __init__(self, base_channels=32, input_channels=2, output_channels=2, n_res_units=3, device="cpu"):
+    def __init__(self, base_channels=32, input_channels=1, output_channels=1, n_res_units=3, device="cpu"):
         super().__init__()
 
         self.window_size = 2400
@@ -120,7 +120,7 @@ class SpecUNet(nn.Module):
             nn.ELU(inplace=True)
         )
 
-        self.input_skip = SkipConnection(self.input_channels,  self.output_channels)
+        self.input_skip = SkipConnection2d(self.input_channels,  self.output_channels)
 
         self.encoder_blocks = nn.ModuleList([
             EncoderBlock(base_channels, stride=2, n_res_units=n_res_units),
@@ -137,7 +137,7 @@ class SpecUNet(nn.Module):
             nn.ELU(inplace=True),
         )
 
-        self.middle_skip = SkipConnection(base_channels * 8)
+        self.middle_skip = SkipConnection2d(base_channels * 8)
 
         self.decoder_blocks = nn.ModuleList([
             DecoderBlock(base_channels * 8, stride=4, n_res_units=n_res_units),
@@ -146,9 +146,9 @@ class SpecUNet(nn.Module):
         ])
 
         self.decoder_skips = nn.ModuleList([
-            SkipConnection(base_channels * 4),
-            SkipConnection(base_channels * 2),
-            SkipConnection(base_channels),
+            SkipConnection2d(base_channels * 4),
+            SkipConnection2d(base_channels * 2),
+            SkipConnection2d(base_channels),
         ])
 
         self.out_conv = nn.Sequential(
