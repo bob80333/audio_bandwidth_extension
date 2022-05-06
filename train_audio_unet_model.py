@@ -19,6 +19,7 @@ START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
+USE_AMP = False
 
 
 def infinite_dataloader(dataloader):
@@ -40,6 +41,7 @@ if __name__ == '__main__':
     parser.add_argument('--step', type=int, default=STEP)
     parser.add_argument('--segment_len_multiplier', type=int, default=SEGMENT_LEN_MULTIPLIER)
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
+    parser.add_argument('--use_amp', type=bool, default=USE_AMP)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -51,6 +53,7 @@ if __name__ == '__main__':
     START_EMA = args.start_ema
     STEP = args.step
     LEARNING_RATE = args.learning_rate
+    USE_AMP = args.use_amp
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
@@ -85,12 +88,13 @@ if __name__ == '__main__':
         "start_ema": START_EMA,
         "eval_every": EVAL_EVERY,
         "segment_len_multiplier": SEGMENT_LEN_MULTIPLIER,
-        "model_type": "hybrid_unet",
+        "model_type": "audio_unet",
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
         "gamma": 0.9998,
         "ema_decay": 0.999,
+        "use_amp": USE_AMP,
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -105,6 +109,8 @@ if __name__ == '__main__':
 
     ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
 
+    scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
+
     for i in tqdm(range(0, N_TRAIN_STEPS + 1, STEP)):
         loss_val = 0
         for j in range(ACCUMULATE_N):
@@ -114,14 +120,15 @@ if __name__ == '__main__':
             clean = clean.cuda()
             degraded = degraded.cuda()
 
-            estimated_clean = model(degraded)
+            with torch.cuda.amp.autocast(enabled=USE_AMP):
+                estimated_clean = model(degraded)
 
-            loss = loss_fn(estimated_clean, clean).mean()
+                loss = loss_fn(estimated_clean, clean).mean()
             loss_val += loss.item()
-            loss.backward()
+            scaler.scale(loss).backward()
         loss_val /= ACCUMULATE_N
         loss_val /= SEGMENT_LEN_MULTIPLIER
-        optimizer.step()
+        scaler.step(optimizer)
         optimizer.zero_grad(set_to_none=True)
 
         if i % 8 == 0:
@@ -131,6 +138,8 @@ if __name__ == '__main__':
         scheduler.step()
         # step ema after every step
         ema_model.update()
+        # step grad scaler
+        scaler.update()
 
         # evaluate every EVAL_EVERY steps
         if i % EVAL_EVERY == 0:
@@ -153,17 +162,17 @@ if __name__ == '__main__':
                         sisdr_losses.append(sisdr_loss.squeeze().item())
                         val_losses.append(val_loss.item())
 
-                    print("SI-SDR", np.mean(sisdr_losses))
-                    wandb.log({"si-sdr": np.mean(sisdr_losses)}, step=i)
-                    wandb.log({"val_loss": np.mean(val_losses)}, step=i)
+                print("SI-SDR", np.mean(sisdr_losses))
+                wandb.log({"si-sdr": np.mean(sisdr_losses)}, step=i)
+                wandb.log({"val_loss": np.mean(val_losses)}, step=i)
 
-                    if np.mean(sisdr_losses) > best_sisdr:
-                        best_sisdr = np.mean(sisdr_losses)
-                        torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
-                                   args.prefix + "best_audio_unet_model_bandwidth_extension.pt")
+                if np.mean(sisdr_losses) > best_sisdr:
+                    best_sisdr = np.mean(sisdr_losses)
+                    torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
+                               args.prefix + "best_audio_unet_model_bandwidth_extension.pt")
 
-                    torchaudio.save(args.prefix + "sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
-                                    48000)
+                torchaudio.save(args.prefix + "sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
+                                48000)
 
                 sisdr_losses_ema = []
                 val_losses_ema = []
@@ -183,14 +192,14 @@ if __name__ == '__main__':
                             sisdr_losses_ema.append(sisdr_loss.squeeze().item())
                             val_losses_ema.append(val_loss.item())
 
-                    print("SI-SDR EMA", np.mean(sisdr_losses_ema))
-                    wandb.log({"si-sdr ema": np.mean(sisdr_losses_ema)}, step=i)
-                    wandb.log({"val_loss ema": np.mean(val_losses_ema)}, step=i)
+                print("SI-SDR EMA", np.mean(sisdr_losses_ema))
+                wandb.log({"si-sdr ema": np.mean(sisdr_losses_ema)}, step=i)
+                wandb.log({"val_loss ema": np.mean(val_losses_ema)}, step=i)
 
-                    if np.mean(sisdr_losses_ema) > best_sisdr_ema:
-                        best_sisdr_ema = np.mean(sisdr_losses_ema)
-                        torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
-                                   args.prefix + "best_audio_unet_ema_bandwidth_extension.pt")
+                if np.mean(sisdr_losses_ema) > best_sisdr_ema:
+                    best_sisdr_ema = np.mean(sisdr_losses_ema)
+                    torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
+                               args.prefix + "best_audio_unet_ema_bandwidth_extension.pt")
 
                 if i == 0:
                     torchaudio.save(args.prefix + "sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(),
