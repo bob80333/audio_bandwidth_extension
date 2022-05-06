@@ -255,9 +255,9 @@ if __name__ == '__main__':
 
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    a = torch.zeros(1, 1, 16384)
-    b = torch.zeros(1, 1, 16384)
-    ts = torch.tensor([0.5])
+    a = torch.zeros(3, 1, 16384)
+    b = torch.zeros(3, 1, 16384)
+    ts = torch.rand((3, 1))
     print(ts.shape)
     with torch.no_grad():
         y = model(a, ts, b)

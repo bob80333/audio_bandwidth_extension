@@ -133,11 +133,12 @@ if __name__ == '__main__':
             noise = torch.randn(degraded.shape).cuda()
             # v-objective diffusion
             v = noise * alphas[:, None, None] - clean * sigmas[:, None, None]
+            z = clean * alphas[:, None, None] + noise * sigmas[:, None, None]
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
-                estimated_v = model(degraded)
+                estimated_v = model(z, timestep=step[:, None], condition_audio=degraded)
 
-                loss = loss_fn(estimated_clean, v).mean()
+                loss = loss_fn(estimated_v, v).mean()
             loss_val += loss.item()
             scaler.scale(loss).backward()
         loss_val /= ACCUMULATE_N
