@@ -22,7 +22,7 @@ STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
 USE_AMP = False
-SAMPLING_STEPS = 50
+SAMPLING_STEPS = 20
 
 
 def infinite_dataloader(dataloader):
@@ -98,6 +98,7 @@ if __name__ == '__main__':
         "gamma": 0.9998,
         "ema_decay": 0.999,
         "use_amp": USE_AMP,
+        "diffusion_sampling_steps": SAMPLING_STEPS,
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
