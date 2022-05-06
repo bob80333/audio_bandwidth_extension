@@ -13,9 +13,9 @@ import argparse
 
 from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, plms_sample
 
-N_TRAIN_STEPS = 50_000
+N_TRAIN_STEPS = 10_000
 BATCH_SIZE = 32
-ACCUMULATE_N = 2
+ACCUMULATE_N = 1
 EVAL_EVERY = 1000
 START_EMA = 2_000
 STEP = 1
@@ -184,9 +184,9 @@ if __name__ == '__main__':
                 if np.mean(sisdr_losses) > best_sisdr:
                     best_sisdr = np.mean(sisdr_losses)
                     torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
-                               args.prefix + "best_audio_unet_model_bandwidth_extension.pt")
+                               args.prefix + "best_diffusion_audio_unet_model_bandwidth_extension.pt")
 
-                torchaudio.save(args.prefix + "sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
+                torchaudio.save(args.prefix + "diffusion_sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
                                 48000)
 
                 sisdr_losses_ema = []
@@ -215,13 +215,13 @@ if __name__ == '__main__':
                 if np.mean(sisdr_losses_ema) > best_sisdr_ema:
                     best_sisdr_ema = np.mean(sisdr_losses_ema)
                     torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
-                               args.prefix + "best_audio_unet_ema_bandwidth_extension.pt")
+                               args.prefix + "best_diffusion_audio_unet_ema_bandwidth_extension.pt")
 
                 if i == 0:
                     torchaudio.save(args.prefix + "sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(),
                                     48000)
                     torchaudio.save(args.prefix + "sample_clean.wav".format(i), clean[-1][:, start:end].cpu(), 48000)
-                torchaudio.save(args.prefix + "sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(),
+                torchaudio.save(args.prefix + "diffusion_sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(),
                                 48000)
 
         if i == START_EMA:

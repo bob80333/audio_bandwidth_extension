@@ -89,13 +89,13 @@ def plms_sample(model, x, steps, extra_args, is_reverse=False, callback=None):
 
 
 def log_snr_to_alpha_sigma(log_snr):
-    """Returns the scaling factors for the clean image and for the noise, given
+    """Returns the scaling factors for the clean audio and for the noise, given
     the log SNR for a timestep."""
     return log_snr.sigmoid().sqrt(), log_snr.neg().sigmoid().sqrt()
 
 
 def alpha_sigma_to_t(alpha, sigma):
-    """Returns a timestep, given the scaling factors for the clean image and for
+    """Returns a timestep, given the scaling factors for the clean audio and for
     the noise."""
     return torch.atan2(sigma, alpha) / math.pi * 2
 
