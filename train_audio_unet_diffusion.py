@@ -22,7 +22,8 @@ STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
 USE_AMP = False
-SAMPLING_STEPS = 20
+# very few steps because evaluation is slow
+SAMPLING_STEPS = 15
 
 
 def infinite_dataloader(dataloader):
@@ -32,7 +33,7 @@ def infinite_dataloader(dataloader):
 
 
 if __name__ == '__main__':
-    torch.backends.cudnn.benchmark = False
+    torch.backends.cudnn.benchmark = True
 
     parser = argparse.ArgumentParser()
 
@@ -128,7 +129,7 @@ if __name__ == '__main__':
             degraded = degraded.cuda()
 
             # diffusion math:
-            t = torch.rand(BATCH_SIZE).cuda()
+            t = torch.rand(clean.shape[0]).cuda()
             step = get_spliced_ddpm_cosine_schedule(t)
             alphas, sigmas = t_to_alpha_sigma(step)
             noise = torch.randn(degraded.shape).cuda()
