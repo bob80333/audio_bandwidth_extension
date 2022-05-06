@@ -32,7 +32,7 @@ def infinite_dataloader(dataloader):
 
 
 if __name__ == '__main__':
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = False
 
     parser = argparse.ArgumentParser()
 
@@ -136,7 +136,7 @@ if __name__ == '__main__':
             z = clean * alphas[:, None, None] + noise * sigmas[:, None, None]
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
-                estimated_v = model(z, timestep=step[:, None], condition_audio=degraded)
+                estimated_v = model(z, timestep=step, condition_audio=degraded)
 
                 loss = loss_fn(estimated_v, v).mean()
             loss_val += loss.item()

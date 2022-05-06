@@ -136,13 +136,18 @@ if __name__ == "__main__":
     if bad_resampled.shape[-1] > wav.shape[-1]:
         bad_resampled = bad_resampled[:, :wav.shape[-1]]
 
-    x = torch.randn(1, 1, wav.shape[-1])
+    x = torch.randn(3, 1, wav.shape[-1])
     bad_resampled = bad_resampled.unsqueeze(0)
+
+    bad_resampled = bad_resampled.repeat(3, 1, 1)
+
+    print(x.shape)
+    print(bad_resampled.shape)
 
     model = get_model(width=2)
     model.eval()
 
-    t = torch.linspace(1, 0, 50+1)[:-1]
+    t = torch.linspace(1, 0, 20+1)[:-1]
     step_list = get_spliced_ddpm_cosine_schedule(t)
 
     denoised = plms_sample(model, x, step_list, {"condition_audio": bad_resampled}, is_reverse=False)

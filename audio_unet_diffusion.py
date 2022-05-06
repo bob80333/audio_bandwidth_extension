@@ -217,7 +217,7 @@ class AudioUNet(nn.Module):
 
     def forward(self, input, timestep, condition_audio):
         # compute timestep embedding
-        timestep_embed = self.mapping(self.timestep_embed(timestep))
+        timestep_embed = self.mapping(self.timestep_embed(timestep[:, None]))
         self.state['timestep_embed'] = timestep_embed
 
         # concatenate on channel dimension
