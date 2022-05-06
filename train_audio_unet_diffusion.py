@@ -14,17 +14,20 @@ import argparse
 from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, plms_sample
 
 N_TRAIN_STEPS = 50_000
-BATCH_SIZE = 32
-ACCUMULATE_N = 2
+BATCH_SIZE = 8
+ACCUMULATE_N = 16
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
-LEARNING_RATE = 1e-3  # got weird loss spikes with 3e-3 so slightly lower
+LEARNING_RATE = 3e-3
 USE_AMP = False
 # test different number of diffusion steps
 SAMPLING_STEPS = [8, 20, 50]
-
+# model parameters
+WIDTH = 32
+N_RES_UNITS = 4
+COND_WIDTH = 512
 
 def infinite_dataloader(dataloader):
     while True:
@@ -46,6 +49,9 @@ if __name__ == '__main__':
     parser.add_argument('--segment_len_multiplier', type=int, default=SEGMENT_LEN_MULTIPLIER)
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
     parser.add_argument('--use_amp', type=bool, default=USE_AMP)
+    parser.add_argument('--width', type=int, default=WIDTH)
+    parser.add_argument('--n_res_units', type=int, default=N_RES_UNITS)
+    parser.add_argument('--cond_width', type=int, default=COND_WIDTH)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -58,10 +64,13 @@ if __name__ == '__main__':
     STEP = args.step
     LEARNING_RATE = args.learning_rate
     USE_AMP = args.use_amp
+    WIDTH = args.width
+    N_RES_UNITS = args.n_res_units
+    COND_WIDTH = args.cond_width
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
-    model = get_model(width=16)
+    model = get_model(width=WIDTH, n_res_units=N_RES_UNITS, cond_width=COND_WIDTH)
     model = model.cuda()
 
     # clean, then noisy
@@ -78,7 +87,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9998)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.99985)
 
     wandb.config.update({
         "learning_rate": LEARNING_RATE,
@@ -87,7 +96,6 @@ if __name__ == '__main__':
         "train_segment_len": 48000 * 2 * SEGMENT_LEN_MULTIPLIER,
         "eval_segment_len": 48000 * 10,
         "n_train_steps": N_TRAIN_STEPS,
-        "model_width": 8,
         "step_size": STEP,
         "start_ema": START_EMA,
         "eval_every": EVAL_EVERY,
@@ -96,10 +104,13 @@ if __name__ == '__main__':
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
-        "gamma": 0.9998,
+        "gamma": 0.99985,
         "ema_decay": 0.999,
         "use_amp": USE_AMP,
         "diffusion_sampling_steps": SAMPLING_STEPS,
+        "model_width": WIDTH,
+        "n_res_units": N_RES_UNITS,
+        "cond_width": COND_WIDTH,
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()

@@ -244,20 +244,20 @@ class AudioUNet(nn.Module):
         return x + self.input_skip(input)
 
 
-def get_model(width=16, input_channels=2):
-    return AudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=3)
+def get_model(width=16, input_channels=2, cond_width=128, n_res_units=3):
+    return AudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=n_res_units, cond_width=cond_width)
 
 
 if __name__ == '__main__':
-    model = get_model()
+    model = get_model(width=32, cond_width=512, n_res_units=4)
 
     print(model)
 
     print(sum(p.numel() for p in model.parameters() if p.requires_grad))
 
-    a = torch.zeros(3, 1, 16384)
-    b = torch.zeros(3, 1, 16384)
-    ts = torch.rand((3, 1))
+    a = torch.zeros(3, 1, 4096)
+    b = torch.zeros(3, 1, 4096)
+    ts = torch.rand(3)
     print(ts.shape)
     with torch.no_grad():
         y = model(a, ts, b)
