@@ -14,20 +14,20 @@ import argparse
 from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, plms_sample
 
 N_TRAIN_STEPS = 50_000
-BATCH_SIZE = 8
-ACCUMULATE_N = 16
+BATCH_SIZE = 16
+ACCUMULATE_N = 8
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
-LEARNING_RATE = 3e-3
+LEARNING_RATE = 1e-3
 USE_AMP = False
 # test different number of diffusion steps
 SAMPLING_STEPS = [8, 20, 50]
 # model parameters
 WIDTH = 32
-N_RES_UNITS = 4
-COND_WIDTH = 512
+N_RES_UNITS = 3
+COND_WIDTH = 256
 
 def infinite_dataloader(dataloader):
     while True:
@@ -87,7 +87,7 @@ if __name__ == '__main__':
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.99985)
+    scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, 0.9998)
 
     wandb.config.update({
         "learning_rate": LEARNING_RATE,
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         "prefix": args.prefix,
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
-        "gamma": 0.99985,
+        "gamma": 0.9998,
         "ema_decay": 0.999,
         "use_amp": USE_AMP,
         "diffusion_sampling_steps": SAMPLING_STEPS,
