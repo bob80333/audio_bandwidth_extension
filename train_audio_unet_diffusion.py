@@ -25,7 +25,7 @@ USE_AMP = False
 # test different number of diffusion steps
 SAMPLING_STEPS = [8, 20, 50]
 # model parameters
-WIDTH = 32
+WIDTH = 16
 N_RES_UNITS = 3
 COND_WIDTH = 256
 

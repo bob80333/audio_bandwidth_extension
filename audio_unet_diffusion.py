@@ -249,7 +249,7 @@ def get_model(width=16, input_channels=2, cond_width=128, n_res_units=3):
 
 
 if __name__ == '__main__':
-    model = get_model(width=32, cond_width=512, n_res_units=4)
+    model = get_model(width=16, cond_width=256, n_res_units=3)
 
     print(model)
 
