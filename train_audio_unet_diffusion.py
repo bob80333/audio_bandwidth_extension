@@ -15,7 +15,7 @@ from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, 
 
 N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 16
-ACCUMULATE_N = 8
+ACCUMULATE_N = 4
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
@@ -156,6 +156,7 @@ if __name__ == '__main__':
                 loss = loss_fn(estimated_v, v).mean()
             loss_val += loss.item()
             scaler.scale(loss).backward()
+
         loss_val /= ACCUMULATE_N
         loss_val /= SEGMENT_LEN_MULTIPLIER
         scaler.step(optimizer)
