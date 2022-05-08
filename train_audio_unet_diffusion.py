@@ -154,11 +154,12 @@ if __name__ == '__main__':
                 estimated_v = model(z, timestep=step, condition_audio=degraded)
 
                 loss = loss_fn(estimated_v, v).mean()
+                loss /= ACCUMULATE_N
+                loss /= SEGMENT_LEN_MULTIPLIER
+
             loss_val += loss.item()
             scaler.scale(loss).backward()
 
-        loss_val /= ACCUMULATE_N
-        loss_val /= SEGMENT_LEN_MULTIPLIER
         scaler.step(optimizer)
         optimizer.zero_grad(set_to_none=True)
 
