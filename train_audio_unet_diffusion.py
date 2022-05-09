@@ -111,6 +111,8 @@ if __name__ == '__main__':
         "model_width": WIDTH,
         "n_res_units": N_RES_UNITS,
         "cond_width": COND_WIDTH,
+        "diffusion_type": "v-objective",
+        "prediction_type": "difference between clean and degraded",
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -146,9 +148,15 @@ if __name__ == '__main__':
             step = get_spliced_ddpm_cosine_schedule(t)
             alphas, sigmas = t_to_alpha_sigma(step)
             noise = torch.randn(degraded.shape).cuda()
+            # instead of directly predicting the clean audio,
+            # we predict the difference between the clean and the degraded audio
+            # this way the model only has to learn to predict what's missing
+            # and should be easier than learning to predict what's missing + copying only certain frequencies from
+            # the conditioning degraded audio
+            difference = clean - degraded
             # v-objective diffusion
-            v = noise * alphas[:, None, None] - clean * sigmas[:, None, None]
-            z = clean * alphas[:, None, None] + noise * sigmas[:, None, None]
+            v = noise * alphas[:, None, None] - difference * sigmas[:, None, None]
+            z = difference * alphas[:, None, None] + noise * sigmas[:, None, None]
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
                 estimated_v = model(z, timestep=step, condition_audio=degraded)
@@ -187,7 +195,8 @@ if __name__ == '__main__':
                         degraded = degraded.cuda()
 
                         noise = torch.randn(degraded.shape).cuda()
-                        estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                        estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                        estimated_clean = estimated_difference + degraded
 
                         for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                             est_clean = est_clean[:, start:end].unsqueeze(0)
@@ -218,7 +227,8 @@ if __name__ == '__main__':
                             degraded = degraded.cuda()
 
                             noise = torch.randn(degraded.shape).cuda()
-                            estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                            estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                            estimated_clean = estimated_difference + degraded
 
                             for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                                 est_clean = est_clean[:, start:end].unsqueeze(0)
