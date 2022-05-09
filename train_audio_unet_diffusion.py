@@ -13,6 +13,9 @@ import argparse
 
 from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, plms_sample
 
+from filter_lowbandwidth import rolloff_filtered
+import torchaudio.functional as F
+
 N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 16
 ACCUMULATE_N = 4
@@ -28,6 +31,9 @@ SAMPLING_STEPS = [8, 20, 50]
 WIDTH = 16
 N_RES_UNITS = 3
 COND_WIDTH = 256
+
+EMA_DECAY = 0.999
+
 
 def infinite_dataloader(dataloader):
     while True:
@@ -52,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--width', type=int, default=WIDTH)
     parser.add_argument('--n_res_units', type=int, default=N_RES_UNITS)
     parser.add_argument('--cond_width', type=int, default=COND_WIDTH)
+    parser.add_argument('--ema_decay', type=float, default=EMA_DECAY)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -67,6 +74,7 @@ if __name__ == '__main__':
     WIDTH = args.width
     N_RES_UNITS = args.n_res_units
     COND_WIDTH = args.cond_width
+    EMA_DECAY = args.ema_decay
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
@@ -105,7 +113,7 @@ if __name__ == '__main__':
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
         "gamma": 0.9998,
-        "ema_decay": 0.999,
+        "ema_decay": EMA_DECAY,
         "use_amp": USE_AMP,
         "diffusion_sampling_steps": SAMPLING_STEPS,
         "model_width": WIDTH,
@@ -125,7 +133,7 @@ if __name__ == '__main__':
     best_sisdr = -100
     best_sisdr_ema = -100
 
-    ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
+    ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=EMA_DECAY)
 
     scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
 
@@ -143,23 +151,33 @@ if __name__ == '__main__':
             clean = clean.cuda()
             degraded = degraded.cuda()
 
+            # avoid learning the low frequency outputs that will just get filtered out
+            # the reason this is different from validation is that this way the model will be more robust
+            # if the rolloff_filtered gets a bit too low of a result by random chance
+            max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 35, 0.97))
+
             # diffusion math:
             t = torch.rand(clean.shape[0]).cuda()
             step = get_spliced_ddpm_cosine_schedule(t)
             alphas, sigmas = t_to_alpha_sigma(step)
             noise = torch.randn(degraded.shape).cuda()
+            noise = F.highpass_biquad(noise, 48000, max_freq)
             # instead of directly predicting the clean audio,
             # we predict the difference between the clean and the degraded audio
             # this way the model only has to learn to predict what's missing
             # and should be easier than learning to predict what's missing + copying only certain frequencies from
             # the conditioning degraded audio
             difference = clean - degraded
+            difference = F.highpass_biquad(difference, 48000, max_freq)
             # v-objective diffusion
             v = noise * alphas[:, None, None] - difference * sigmas[:, None, None]
+            v = F.highpass_biquad(v, 48000, max_freq)
             z = difference * alphas[:, None, None] + noise * sigmas[:, None, None]
+            z = F.highpass_biquad(z, 48000, max_freq)
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
                 estimated_v = model(z, timestep=step, condition_audio=degraded)
+                estimated_v = F.highpass_biquad(estimated_v, 48000, max_freq)
 
                 loss = loss_fn(estimated_v, v).mean()
                 loss /= ACCUMULATE_N
@@ -194,8 +212,23 @@ if __name__ == '__main__':
                         clean = clean.cuda()
                         degraded = degraded.cuda()
 
+                        # estimate max freq of degraded audio
+                        # this is used to highpass filter the predicted difference, 
+                        # so that the model only has to predict the missing frequencies
+
+                        # this is a slightly more agressive way of estimating the max freq
+                        # rather than what's used in filter_lowbandwidth.py
+                        # but the reason for this is that the top frequencies could be somewhat degraded by the resample
+
+                        max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 40, 0.98))
+
                         noise = torch.randn(degraded.shape).cuda()
                         estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+
+                        # remove unneeded low frequencies
+                        estimated_difference = F.highpass_biquad(estimated_difference, 48000,
+                                                                 max_freq)
+
                         estimated_clean = estimated_difference + degraded
 
                         for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
@@ -215,8 +248,10 @@ if __name__ == '__main__':
                         torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
                                    str(SAMPLE_STEPS) + args.prefix + "best_diffusion_audio_unet_model_bandwidth_extension.pt")
 
-                    torchaudio.save(str(SAMPLE_STEPS) + args.prefix + "diffusion_sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
-                                    48000)
+                    torchaudio.save(
+                        str(SAMPLE_STEPS) + args.prefix + "diffusion_sample_bandwith_extended_{}.wav".format(i),
+                        est_clean[0].cpu(),
+                        48000)
 
                     sisdr_losses_ema = []
                     val_losses_ema = []
@@ -226,8 +261,16 @@ if __name__ == '__main__':
                             clean = clean.cuda()
                             degraded = degraded.cuda()
 
+                            max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 40, 0.98))
+
                             noise = torch.randn(degraded.shape).cuda()
+
                             estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+
+                            # remove unneeded low frequencies
+                            estimated_difference = F.highpass_biquad(estimated_difference, 48000,
+                                                                     max_freq)
+
                             estimated_clean = estimated_difference + degraded
 
                             for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
@@ -245,15 +288,18 @@ if __name__ == '__main__':
                     if np.mean(sisdr_losses_ema) > best_sisdr_ema:
                         best_sisdr_ema = np.mean(sisdr_losses_ema)
                         torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
-                                   str(SAMPLE_STEPS) +args.prefix + "best_diffusion_audio_unet_ema_bandwidth_extension.pt")
+                                   str(SAMPLE_STEPS) + args.prefix + "best_diffusion_audio_unet_ema_bandwidth_extension.pt")
 
                     if i == 0:
                         torchaudio.save(args.prefix + "sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(),
                                         48000)
-                        torchaudio.save(args.prefix + "sample_clean.wav".format(i), clean[-1][:, start:end].cpu(), 48000)
-                    torchaudio.save(str(SAMPLE_STEPS) + args.prefix + "diffusion_sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(),
-                                    48000)
+                        torchaudio.save(args.prefix + "sample_clean.wav".format(i), clean[-1][:, start:end].cpu(),
+                                        48000)
+                    torchaudio.save(
+                        str(SAMPLE_STEPS) + args.prefix + "diffusion_sample_bandwidth_extended_ema_{}.wav".format(i),
+                        est_clean[0].cpu(),
+                        48000)
 
         if i == START_EMA:
             # restart EMA
-            ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
+            ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=EMA_DECAY)
