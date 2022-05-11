@@ -13,8 +13,6 @@ import argparse
 
 from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, plms_sample
 
-from filter_lowbandwidth import rolloff_filtered
-import torchaudio.functional as F
 
 N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 16
@@ -28,11 +26,12 @@ USE_AMP = False
 # test different number of diffusion steps
 SAMPLING_STEPS = [8, 20, 50]
 # model parameters
-WIDTH = 16
+WIDTH = 32
 N_RES_UNITS = 3
 COND_WIDTH = 256
 
 EMA_DECAY = 0.999
+CLIP_GRAD_NORM = 1.0
 
 
 def infinite_dataloader(dataloader):
@@ -59,6 +58,7 @@ if __name__ == '__main__':
     parser.add_argument('--n_res_units', type=int, default=N_RES_UNITS)
     parser.add_argument('--cond_width', type=int, default=COND_WIDTH)
     parser.add_argument('--ema_decay', type=float, default=EMA_DECAY)
+    parser.add_argument('--clip_grad_norm', type=float, default=CLIP_GRAD_NORM)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -75,6 +75,7 @@ if __name__ == '__main__':
     N_RES_UNITS = args.n_res_units
     COND_WIDTH = args.cond_width
     EMA_DECAY = args.ema_decay
+    CLIP_GRAD_NORM = args.clip_grad_norm
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
@@ -151,33 +152,18 @@ if __name__ == '__main__':
             clean = clean.cuda()
             degraded = degraded.cuda()
 
-            # avoid learning the low frequency outputs that will just get filtered out
-            # the reason this is different from validation is that this way the model will be more robust
-            # if the rolloff_filtered gets a bit too low of a result by random chance
-            max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 35, 0.97))
-
             # diffusion math:
             t = torch.rand(clean.shape[0]).cuda()
             step = get_spliced_ddpm_cosine_schedule(t)
             alphas, sigmas = t_to_alpha_sigma(step)
             noise = torch.randn(degraded.shape).cuda()
-            noise = F.highpass_biquad(noise, 48000, max_freq)
-            # instead of directly predicting the clean audio,
-            # we predict the difference between the clean and the degraded audio
-            # this way the model only has to learn to predict what's missing
-            # and should be easier than learning to predict what's missing + copying only certain frequencies from
-            # the conditioning degraded audio
-            difference = clean - degraded
-            difference = F.highpass_biquad(difference, 48000, max_freq)
+
             # v-objective diffusion
-            v = noise * alphas[:, None, None] - difference * sigmas[:, None, None]
-            v = F.highpass_biquad(v, 48000, max_freq)
-            z = difference * alphas[:, None, None] + noise * sigmas[:, None, None]
-            z = F.highpass_biquad(z, 48000, max_freq)
+            v = noise * alphas[:, None, None] - clean * sigmas[:, None, None]
+            z = clean * alphas[:, None, None] + noise * sigmas[:, None, None]
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
                 estimated_v = model(z, timestep=step, condition_audio=degraded)
-                estimated_v = F.highpass_biquad(estimated_v, 48000, max_freq)
 
                 loss = loss_fn(estimated_v, v).mean()
                 loss /= ACCUMULATE_N
@@ -186,6 +172,7 @@ if __name__ == '__main__':
             loss_val += loss.item()
             scaler.scale(loss).backward()
 
+        torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_GRAD_NORM)
         scaler.step(optimizer)
         optimizer.zero_grad(set_to_none=True)
 
@@ -212,24 +199,8 @@ if __name__ == '__main__':
                         clean = clean.cuda()
                         degraded = degraded.cuda()
 
-                        # estimate max freq of degraded audio
-                        # this is used to highpass filter the predicted difference, 
-                        # so that the model only has to predict the missing frequencies
-
-                        # this is a slightly more agressive way of estimating the max freq
-                        # rather than what's used in filter_lowbandwidth.py
-                        # but the reason for this is that the top frequencies could be somewhat degraded by the resample
-
-                        max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 40, 0.98))
-
                         noise = torch.randn(degraded.shape).cuda()
-                        estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
-
-                        # remove unneeded low frequencies
-                        estimated_difference = F.highpass_biquad(estimated_difference, 48000,
-                                                                 max_freq)
-
-                        estimated_clean = estimated_difference + degraded
+                        estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
 
                         for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                             est_clean = est_clean[:, start:end].unsqueeze(0)
@@ -261,17 +232,9 @@ if __name__ == '__main__':
                             clean = clean.cuda()
                             degraded = degraded.cuda()
 
-                            max_freq = np.max(rolloff_filtered(degraded.cpu().numpy(), 40, 0.98))
-
                             noise = torch.randn(degraded.shape).cuda()
 
-                            estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
-
-                            # remove unneeded low frequencies
-                            estimated_difference = F.highpass_biquad(estimated_difference, 48000,
-                                                                     max_freq)
-
-                            estimated_clean = estimated_difference + degraded
+                            estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
 
                             for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                                 est_clean = est_clean[:, start:end].unsqueeze(0)
