@@ -157,10 +157,11 @@ if __name__ == '__main__':
             step = get_spliced_ddpm_cosine_schedule(t)
             alphas, sigmas = t_to_alpha_sigma(step)
             noise = torch.randn(degraded.shape).cuda()
+            difference = clean - degraded
 
             # v-objective diffusion
-            v = noise * alphas[:, None, None] - clean * sigmas[:, None, None]
-            z = clean * alphas[:, None, None] + noise * sigmas[:, None, None]
+            v = noise * alphas[:, None, None] - difference * sigmas[:, None, None]
+            z = difference * alphas[:, None, None] + noise * sigmas[:, None, None]
 
             with torch.cuda.amp.autocast(enabled=USE_AMP):
                 estimated_v = model(z, timestep=step, condition_audio=degraded)
@@ -200,7 +201,8 @@ if __name__ == '__main__':
                         degraded = degraded.cuda()
 
                         noise = torch.randn(degraded.shape).cuda()
-                        estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                        estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                        estimated_clean = estimated_difference + degraded
 
                         for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                             est_clean = est_clean[:, start:end].unsqueeze(0)
@@ -234,7 +236,8 @@ if __name__ == '__main__':
 
                             noise = torch.randn(degraded.shape).cuda()
 
-                            estimated_clean = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                            estimated_difference = plms_sample(model, noise, steps, {"condition_audio": degraded})
+                            estimated_clean = estimated_difference + degraded
 
                             for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                                 est_clean = est_clean[:, start:end].unsqueeze(0)
