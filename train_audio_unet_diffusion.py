@@ -15,8 +15,8 @@ from diffusion_utils import get_spliced_ddpm_cosine_schedule, t_to_alpha_sigma, 
 
 
 N_TRAIN_STEPS = 50_000
-BATCH_SIZE = 16
-ACCUMULATE_N = 4
+BATCH_SIZE = 32
+ACCUMULATE_N = 2
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
@@ -26,7 +26,7 @@ USE_AMP = False
 # test different number of diffusion steps
 SAMPLING_STEPS = [8, 20, 50]
 # model parameters
-WIDTH = 32
+WIDTH = 16
 N_RES_UNITS = 3
 COND_WIDTH = 256
 
