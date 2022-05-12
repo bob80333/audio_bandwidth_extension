@@ -172,8 +172,8 @@ class AudioUNet(nn.Module):
         return x + self.input_skip(input)
 
 
-def get_model(width=16, input_channels=1):
-    return AudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=3)
+def get_model(width=16, input_channels=1, n_res_units=3):
+    return AudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=n_res_units)
 
 
 if __name__ == '__main__':

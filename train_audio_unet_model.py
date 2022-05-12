@@ -13,13 +13,19 @@ import argparse
 
 N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 32
-ACCUMULATE_N = 2
-EVAL_EVERY = 1000
+ACCUMULATE_N = 1
+EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
 USE_AMP = False
+# model parameters
+WIDTH = 16
+N_RES_UNITS = 3
+
+EMA_DECAY = 0.999
+CLIP_GRAD_NORM = 1.0
 
 
 def infinite_dataloader(dataloader):
@@ -42,6 +48,10 @@ if __name__ == '__main__':
     parser.add_argument('--segment_len_multiplier', type=int, default=SEGMENT_LEN_MULTIPLIER)
     parser.add_argument('--learning_rate', type=float, default=LEARNING_RATE)
     parser.add_argument('--use_amp', type=bool, default=USE_AMP)
+    parser.add_argument('--width', type=int, default=WIDTH)
+    parser.add_argument('--n_res_units', type=int, default=N_RES_UNITS)
+    parser.add_argument('--ema_decay', type=float, default=EMA_DECAY)
+    parser.add_argument('--clip_grad_norm', type=float, default=CLIP_GRAD_NORM)
     parser.add_argument('prefix', type=str)
 
     args = parser.parse_args()
@@ -54,10 +64,15 @@ if __name__ == '__main__':
     STEP = args.step
     LEARNING_RATE = args.learning_rate
     USE_AMP = args.use_amp
+    SEGMENT_LEN_MULTIPLIER = args.segment_len_multiplier
+    WIDTH = args.width
+    N_RES_UNITS = args.n_res_units
+    EMA_DECAY = args.ema_decay
+    CLIP_GRAD_NORM = args.clip_grad_norm
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
-    model = get_model(width=16)
+    model = get_model(width=WIDTH, n_res_units=N_RES_UNITS)
     model = model.cuda()
 
     # clean, then noisy
@@ -83,7 +98,7 @@ if __name__ == '__main__':
         "train_segment_len": 48000 * 2 * SEGMENT_LEN_MULTIPLIER,
         "eval_segment_len": 48000 * 10,
         "n_train_steps": N_TRAIN_STEPS,
-        "model_width": 8,
+        "model_width": WIDTH,
         "step_size": STEP,
         "start_ema": START_EMA,
         "eval_every": EVAL_EVERY,
@@ -93,8 +108,9 @@ if __name__ == '__main__':
         "n_parameters": sum(p.numel() for p in model.parameters() if p.requires_grad),
         "lr_decay": "exponential",
         "gamma": 0.9998,
-        "ema_decay": 0.999,
+        "ema_decay": EMA_DECAY,
         "use_amp": USE_AMP,
+        "predicted": "clean",
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -107,7 +123,7 @@ if __name__ == '__main__':
     best_sisdr = -100
     best_sisdr_ema = -100
 
-    ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
+    ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=EMA_DECAY)
 
     scaler = torch.cuda.amp.GradScaler(enabled=USE_AMP)
 
@@ -124,10 +140,14 @@ if __name__ == '__main__':
                 estimated_clean = model(degraded)
 
                 loss = loss_fn(estimated_clean, clean).mean()
+                loss /= ACCUMULATE_N
+                loss /= SEGMENT_LEN_MULTIPLIER
             loss_val += loss.item()
             scaler.scale(loss).backward()
-        loss_val /= ACCUMULATE_N
-        loss_val /= SEGMENT_LEN_MULTIPLIER
+
+        scaler.unscale_(optimizer)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), CLIP_GRAD_NORM)
+
         scaler.step(optimizer)
         optimizer.zero_grad(set_to_none=True)
 
@@ -210,4 +230,4 @@ if __name__ == '__main__':
 
         if i == START_EMA:
             # restart EMA
-            ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=0.999)
+            ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=EMA_DECAY)
