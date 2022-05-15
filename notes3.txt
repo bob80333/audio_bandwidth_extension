@@ -1,0 +1,34 @@
+
+test different learning rates
+note that si-sdr doesn't correspond to actual quality 1-1
+since the model trained on "difference" has lower si-sdr by a few points, but the spectrogram looks much better and more realistic
+
+since using 2x batch size, need to add baseline
+default:
+
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-3 difference_baseline_10k_1
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-3 difference_baseline_10k_2
+
+10x lr:
+
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-2 difference_baseline_3e-2_10k_1
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-2 difference_baseline_3e-2_10k_2
+
+0.1x lr:
+
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-4 difference_baseline_3e-4_10k_1
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 3e-4 difference_baseline_3e-4_10k_2
+
+3x lr:
+
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 9e-3 difference_baseline_9e-3_10k_1
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 9e-3 difference_baseline_9e-3_10k_2
+
+0.33x lr:
+
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 1e-3 difference_baseline_1e-3_10k_1
+python train_audio_unet_model.py --n_train_steps 10000 --learning_rate 1e-3 difference_baseline_1e-3_10k_2
+
+train the best model for longer time:
+
+python train_audio_unet_model.py --n_train_steps 100000 --learning_rate ??? difference_bestlr_100k_1

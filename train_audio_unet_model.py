@@ -13,7 +13,7 @@ import argparse
 
 N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 32
-ACCUMULATE_N = 1
+ACCUMULATE_N = 2
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
@@ -110,7 +110,7 @@ if __name__ == '__main__':
         "gamma": 0.9998,
         "ema_decay": EMA_DECAY,
         "use_amp": USE_AMP,
-        "predicted": "clean",
+        "predicted": "difference",
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -136,10 +136,12 @@ if __name__ == '__main__':
             clean = clean.cuda()
             degraded = degraded.cuda()
 
-            with torch.cuda.amp.autocast(enabled=USE_AMP):
-                estimated_clean = model(degraded)
+            difference = clean - degraded
 
-                loss = loss_fn(estimated_clean, clean).mean()
+            with torch.cuda.amp.autocast(enabled=USE_AMP):
+                estimated_difference = model(degraded)
+
+                loss = loss_fn(estimated_difference, difference).mean()
                 loss /= ACCUMULATE_N
                 loss /= SEGMENT_LEN_MULTIPLIER
             loss_val += loss.item()
@@ -172,7 +174,8 @@ if __name__ == '__main__':
                     clean = clean.cuda()
                     degraded = degraded.cuda()
 
-                    estimated_clean = model(degraded)
+                    estimated_difference = model(degraded)
+                    estimated_clean = estimated_difference + degraded
 
                     for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                         est_clean = est_clean[:, start:end].unsqueeze(0)
@@ -202,7 +205,8 @@ if __name__ == '__main__':
                         clean = clean.cuda()
                         degraded = degraded.cuda()
 
-                        estimated_clean = model(degraded)
+                        estimated_difference = model(degraded)
+                        estimated_clean = estimated_difference + degraded
 
                         for est_clean, real_clean, start, end in zip(estimated_clean, clean, start_idx, end_idx):
                             est_clean = est_clean[:, start:end].unsqueeze(0)
