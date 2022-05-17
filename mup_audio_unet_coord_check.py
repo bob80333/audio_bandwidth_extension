@@ -35,7 +35,7 @@ if __name__ == '__main__':
     # this returns a pandas dataframe
     df = get_coord_data(models, dataloader, optimizer='adam', lr=3e-2, lossfn='l1')
     # This saves the coord check plots to filename.
-    plot_coord_data(df, save_to="plot_mup_outkernel1.png")
+    plot_coord_data(df, save_to="plot_mup_outkernel1_lastskip.png")
 
     def lazy_model_nomup(width):
         return lambda: VeryShallowMupAudioUNet(width, ismup=False)
@@ -44,4 +44,4 @@ if __name__ == '__main__':
 
     nomup_df = get_coord_data(nomup_models, dataloader, optimizer='adam', lr=3e-2, lossfn='l1', mup=False)
     # This saves the coord check plots to filename.
-    plot_coord_data(nomup_df, save_to="plot_nomup_outkernel1.png")
+    plot_coord_data(nomup_df, save_to="plot_nomup_outkernel1_lastskip.png")

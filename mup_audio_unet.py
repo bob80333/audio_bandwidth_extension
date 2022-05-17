@@ -37,14 +37,10 @@ class SkipConnection(nn.Module):
         if output_channels is None:
             output_channels = num_channels
 
-        layers = [
-            nn.utils.weight_norm(nn.Conv1d(num_channels, output_channels, kernel_size=(1,))),
-        ]
-
-        self.layers = nn.Sequential(*layers)
+        self.skip = nn.utils.weight_norm(nn.Conv1d(num_channels, output_channels, kernel_size=(1,)))
 
     def forward(self, x):
-        return self.layers(x)
+        return self.skip(x)
 
 
 class EncoderBlock(nn.Module):
@@ -220,6 +216,10 @@ class VeryShallowMupAudioUNet(nn.Module):
                     mup.MuConv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=1, padding=0,
                                  padding_mode='replicate')),
             )
+
+            self.input_skip.skip = nn.Sequential(nn.utils.weight_norm(
+                mup.MuConv1d(in_channels=input_channels, out_channels=output_channels, kernel_size=1, padding=0,
+                             padding_mode='replicate')),)
         else:
             self.out_conv = nn.Sequential(
                 nn.utils.weight_norm(
