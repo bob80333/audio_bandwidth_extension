@@ -210,21 +210,23 @@ class VeryShallowMupAudioUNet(nn.Module):
             SkipConnection(base_channels),
         ])
 
-        if (ismup):
+        if ismup:
             self.out_conv = nn.Sequential(
                 nn.utils.weight_norm(
-                    mup.MuConv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=1, padding=0,
-                                 padding_mode='replicate')),
+                    mup.MuReadout(in_features=base_channels, out_features=output_channels)),
             )
 
             self.input_skip.skip = nn.Sequential(nn.utils.weight_norm(
-                mup.MuConv1d(in_channels=input_channels, out_channels=output_channels, kernel_size=1, padding=0,
-                             padding_mode='replicate')),)
+                mup.MuReadout(in_features=input_channels, out_features=output_channels)),
+            )
         else:
             self.out_conv = nn.Sequential(
                 nn.utils.weight_norm(
-                    nn.Conv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=1, padding=0,
-                              padding_mode='replicate')),
+                    nn.Linear(in_features=base_channels, out_features=output_channels)),
+            )
+
+            self.input_skip.skip = nn.Sequential(nn.utils.weight_norm(
+                nn.Linear(in_features=input_channels, out_features=output_channels)),
             )
 
     def forward(self, input):
@@ -244,9 +246,15 @@ class VeryShallowMupAudioUNet(nn.Module):
             x = block(x)
             x = x + skip(xs.pop())
 
-        x = self.out_conv(x)
+        # shape of x is (batch_size, channels, time)
+        # out is linear layer so needs input shape of (batch_size, time, channels)
+        # return to (batch_size, channels, time) after out_conv
+        x = self.out_conv(x.transpose(1, 2)).transpose(1, 2)
 
-        return x + self.input_skip(input)
+        # shape of input is (batch_size, channels, time)
+        # input_skip is linear layer so needs input shape of (batch_size, time, channels)
+        # return to (batch_size, channels, time) after input_skip
+        return x + self.input_skip(input.transpose(1, 2)).transpose(1, 2)
 
 
 def get_model(width=16, input_channels=1, n_res_units=3):
