@@ -217,13 +217,13 @@ class VeryShallowMupAudioUNet(nn.Module):
         if (ismup):
             self.out_conv = nn.Sequential(
                 nn.utils.weight_norm(
-                    mup.MuConv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=7, padding=3,
+                    mup.MuConv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=1, padding=0,
                                  padding_mode='replicate')),
             )
         else:
             self.out_conv = nn.Sequential(
                 nn.utils.weight_norm(
-                    nn.Conv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=7, padding=3,
+                    nn.Conv1d(in_channels=base_channels, out_channels=output_channels, kernel_size=1, padding=0,
                               padding_mode='replicate')),
             )
 
