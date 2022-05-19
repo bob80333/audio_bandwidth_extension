@@ -212,21 +212,12 @@ class VeryShallowMupAudioUNet(nn.Module):
 
         if ismup:
             self.out_conv = nn.Sequential(
-                nn.utils.weight_norm(
-                    mup.MuReadout(in_features=base_channels, out_features=output_channels)),
+                mup.MuReadout(in_features=base_channels, out_features=output_channels),
             )
 
-            self.input_skip.skip = nn.Sequential(nn.utils.weight_norm(
-                mup.MuReadout(in_features=input_channels, out_features=output_channels)),
-            )
         else:
             self.out_conv = nn.Sequential(
-                nn.utils.weight_norm(
-                    nn.Linear(in_features=base_channels, out_features=output_channels)),
-            )
-
-            self.input_skip.skip = nn.Sequential(nn.utils.weight_norm(
-                nn.Linear(in_features=input_channels, out_features=output_channels)),
+                nn.Linear(in_features=base_channels, out_features=output_channels),
             )
 
     def forward(self, input):
