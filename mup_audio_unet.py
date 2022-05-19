@@ -242,10 +242,7 @@ class VeryShallowMupAudioUNet(nn.Module):
         # return to (batch_size, channels, time) after out_conv
         x = self.out_conv(x.transpose(1, 2)).transpose(1, 2)
 
-        # shape of input is (batch_size, channels, time)
-        # input_skip is linear layer so needs input shape of (batch_size, time, channels)
-        # return to (batch_size, channels, time) after input_skip
-        return x + self.input_skip(input.transpose(1, 2)).transpose(1, 2)
+        return x + self.input_skip(input)
 
 
 def get_model(width=16, input_channels=1, n_res_units=3):
