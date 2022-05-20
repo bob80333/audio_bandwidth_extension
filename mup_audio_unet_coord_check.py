@@ -9,7 +9,9 @@ from mup_audio_unet import VeryShallowMupAudioUNet
 if __name__ == '__main__':
     # set the base shapes
     temp_model = VeryShallowMupAudioUNet(1)
+    temp_model.remove_all_wn()
     temp2_model = VeryShallowMupAudioUNet(2)
+    temp2_model.remove_all_wn()
     base_shapes = make_base_shapes(temp_model, temp2_model, 'audiounet_base.bsh')
 
     def relevant_modules(name):
@@ -20,7 +22,12 @@ if __name__ == '__main__':
 
     def lazy_model(width):
         # `set_base_shapes` returns the model
-        return lambda: set_base_shapes(VeryShallowMupAudioUNet(width), 'audiounet_base.bsh')
+        def get_model(width):
+            model = VeryShallowMupAudioUNet(width, ismup=True)
+            model.remove_all_wn()
+            set_base_shapes(model, 'audiounet_base.bsh')
+            return model
+        return lambda: get_model(width)
         # Note: any custom initialization with `mup.init` would need to
         # be done inside the lambda as well
 
@@ -35,13 +42,22 @@ if __name__ == '__main__':
     # this returns a pandas dataframe
     df = get_coord_data(models, dataloader, optimizer='adam', lr=3e-2, lossfn='l1')
     # This saves the coord check plots to filename.
-    plot_coord_data(df, save_to="plot_mup_outlinear_removewnout.png")
+    plot_coord_data(df, save_to="plot_mup_outlinear_removewnall.png")
+
 
     def lazy_model_nomup(width):
-        return lambda: VeryShallowMupAudioUNet(width, ismup=False)
+        # `set_base_shapes` returns the model
+        def get_model_nomup(width):
+            model = VeryShallowMupAudioUNet(width, ismup=False)
+            model.remove_all_wn()
+            return model
+
+        return lambda: get_model_nomup(width)
+        # Note: any custom initialization with `mup.init` would need to
+        # be done inside the lambda as well
 
     nomup_models = {2: lazy_model_nomup(2), 4: lazy_model_nomup(4), 8: lazy_model_nomup(8), 16: lazy_model_nomup(16), 32: lazy_model_nomup(32), 64: lazy_model_nomup(64), 128: lazy_model_nomup(128)}
 
     nomup_df = get_coord_data(nomup_models, dataloader, optimizer='adam', lr=3e-2, lossfn='l1', mup=False)
     # This saves the coord check plots to filename.
-    plot_coord_data(nomup_df, save_to="plot_nomup_outlinear_removewnout.png")
+    plot_coord_data(nomup_df, save_to="plot_nomup_outlinear_removewnall.png")

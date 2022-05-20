@@ -244,6 +244,11 @@ class VeryShallowMupAudioUNet(nn.Module):
 
         return x + self.input_skip(input)
 
+    def remove_all_wn(self):
+        for m in self.modules():
+            if ('weight_g' in m._parameters) or ('weight_v' in m._parameters):
+                torch.nn.utils.remove_weight_norm(m)
+
 
 def get_model(width=16, input_channels=1, n_res_units=3):
     return MupAudioUNet(width, input_channels=input_channels, output_channels=1, n_res_units=n_res_units)
