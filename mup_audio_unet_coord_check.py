@@ -35,7 +35,7 @@ if __name__ == '__main__':
     models = {2: lazy_model(2), 4: lazy_model(4), 8: lazy_model(8), 16: lazy_model(16), 32: lazy_model(32), 64: lazy_model(64), 128: lazy_model(128)}
     # make a dataloader with small batch size/seq len
     #   just for testing
-    data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0,
+    data = AudioDataset("mup_testing_vctk_data/", aug_prob=0,
                         test=False, segment_len=64000, dual_channel=False)
     dataloader = DataLoader(data, batch_size=16, shuffle=False, num_workers=2)
     # record data from the model activations over a few steps of training
