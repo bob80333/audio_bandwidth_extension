@@ -11,9 +11,10 @@ import wandb
 
 import argparse
 
-N_TRAIN_STEPS = 50_000
-BATCH_SIZE = 32
+N_TRAIN_STEPS = 5_000
+BATCH_SIZE = 16
 ACCUMULATE_N = 2
+N_SAMPLES_BASE = 64_000
 EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
@@ -21,11 +22,12 @@ SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
 USE_AMP = False
 # model parameters
-WIDTH = 16
+WIDTH = 32
 N_RES_UNITS = 3
 
 EMA_DECAY = 0.999
 CLIP_GRAD_NORM = 1.0
+NORM_TYPE = "weight_norm"
 
 
 def infinite_dataloader(dataloader):
@@ -78,7 +80,7 @@ if __name__ == '__main__':
     # clean, then noisy
     # this will be the order the dataloader returns the audio in
     train_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0,
-                              test=False, segment_len=48000 * 2 * SEGMENT_LEN_MULTIPLIER, dual_channel=False)
+                              test=False, segment_len=N_SAMPLES_BASE * SEGMENT_LEN_MULTIPLIER, dual_channel=False)
 
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
 
@@ -95,7 +97,7 @@ if __name__ == '__main__':
         "learning_rate": LEARNING_RATE,
         "batch_size": BATCH_SIZE,
         "accumulate_n": ACCUMULATE_N,
-        "train_segment_len": 48000 * 2 * SEGMENT_LEN_MULTIPLIER,
+        "train_segment_len": N_SAMPLES_BASE * SEGMENT_LEN_MULTIPLIER,
         "eval_segment_len": 48000 * 10,
         "n_train_steps": N_TRAIN_STEPS,
         "model_width": WIDTH,
@@ -111,6 +113,7 @@ if __name__ == '__main__':
         "ema_decay": EMA_DECAY,
         "use_amp": USE_AMP,
         "predicted": "difference",
+        "normalization_layer": NORM_TYPE,
     })
 
     loss_fn = losses.multi_scale_spectral.SingleSrcMultiScaleSpectral()
@@ -192,9 +195,9 @@ if __name__ == '__main__':
                 if np.mean(sisdr_losses) > best_sisdr:
                     best_sisdr = np.mean(sisdr_losses)
                     torch.save({"model": model.state_dict(), "si-sdr": best_sisdr},
-                               args.prefix + "best_audio_unet_model_bandwidth_extension.pt")
+                               args.prefix + NORM_TYPE + "_best_audio_unet_model_bandwidth_extension.pt")
 
-                torchaudio.save(args.prefix + "sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
+                torchaudio.save(args.prefix + NORM_TYPE + "_sample_bandwith_extended_{}.wav".format(i), est_clean[0].cpu(),
                                 48000)
 
                 sisdr_losses_ema = []
@@ -223,13 +226,13 @@ if __name__ == '__main__':
                 if np.mean(sisdr_losses_ema) > best_sisdr_ema:
                     best_sisdr_ema = np.mean(sisdr_losses_ema)
                     torch.save({"model": model.state_dict(), "si-sdr": best_sisdr_ema},
-                               args.prefix + "best_audio_unet_ema_bandwidth_extension.pt")
+                               args.prefix + NORM_TYPE + "_best_audio_unet_ema_bandwidth_extension.pt")
 
                 if i == 0:
-                    torchaudio.save(args.prefix + "sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(),
+                    torchaudio.save(args.prefix + NORM_TYPE + "_sample_degraded.wav".format(i), degraded[-1][:, start:end].cpu(),
                                     48000)
-                    torchaudio.save(args.prefix + "sample_clean.wav".format(i), clean[-1][:, start:end].cpu(), 48000)
-                torchaudio.save(args.prefix + "sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(),
+                    torchaudio.save(args.prefix + NORM_TYPE + "_sample_clean.wav".format(i), clean[-1][:, start:end].cpu(), 48000)
+                torchaudio.save(args.prefix + NORM_TYPE + "_sample_bandwidth_extended_ema_{}.wav".format(i), est_clean[0].cpu(),
                                 48000)
 
         if i == START_EMA:
