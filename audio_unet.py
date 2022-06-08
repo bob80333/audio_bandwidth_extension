@@ -14,10 +14,11 @@ class ResidualUnit(nn.Module):
         self.layers = nn.Sequential(
             nn.Conv1d(num_channels, num_channels, kernel_size=(3,), dilation=dilation, padding=dilation,
                           padding_mode='replicate'),
-            nn.LayerNorm(num_channels),
+            # group norm with 1 group = layer norm
+            nn.GroupNorm(1, num_channels),
             nn.ELU(inplace=True),
             nn.Conv1d(num_channels, num_channels, kernel_size=(1,)),
-            nn.LayerNorm(num_channels),
+            nn.GroupNorm(1, num_channels),
             nn.ELU(inplace=True),
         )
 
@@ -59,7 +60,7 @@ class EncoderBlock(nn.Module):
                 nn.Conv1d(channels, 2 * channels, kernel_size=(2 * stride,), stride=(stride,), padding=stride // 2,
                           padding_mode='replicate'))
 
-        layers.append(nn.LayerNorm(2 * channels))
+        layers.append(nn.GroupNorm(1, 2 * channels))
         layers.append(nn.ELU(inplace=True))
 
         self.layers = nn.Sequential(*layers)
@@ -82,7 +83,7 @@ class DecoderBlock(nn.Module):
 
         layers.append(nn.ReplicationPad1d(stride // 2))
 
-        layers.append(nn.LayerNorm(channels // 2))
+        layers.append(nn.GroupNorm(1, channels // 2))
         layers.append(nn.ELU(inplace=True))
 
         for i in range(n_res_units):
@@ -101,7 +102,7 @@ class AudioUNet(nn.Module):
 
         self.input_conv = nn.Sequential(
                 nn.Conv1d(input_channels, base_channels, kernel_size=(7,), padding=3, padding_mode='replicate'),
-            nn.LayerNorm(base_channels),
+            nn.GroupNorm(1, base_channels),
             nn.ELU(inplace=True)
         )
 
@@ -117,11 +118,11 @@ class AudioUNet(nn.Module):
         self.middle_layers = nn.Sequential(
             nn.Conv1d(base_channels * 16, base_channels * 16, kernel_size=(7,), padding=3,
                                            padding_mode='replicate'),
-            nn.LayerNorm(base_channels * 16),
+            nn.GroupNorm(1, base_channels * 16),
             nn.ELU(inplace=True),
             nn.Conv1d(base_channels * 16, base_channels * 16, kernel_size=(7,), padding=3,
                                            padding_mode='replicate'),
-            nn.LayerNorm(base_channels * 16),
+            nn.GroupNorm(1, base_channels * 16),
             nn.ELU(inplace=True),
         )
 
