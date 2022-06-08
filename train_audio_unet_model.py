@@ -27,7 +27,7 @@ N_RES_UNITS = 3
 
 EMA_DECAY = 0.999
 CLIP_GRAD_NORM = 1.0
-NORM_TYPE = "width_adjusted_group_norm"
+NORM_TYPE = "no_norm"
 
 
 def infinite_dataloader(dataloader):
