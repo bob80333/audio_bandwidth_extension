@@ -13,7 +13,7 @@ from mup import MuAdamW, set_base_shapes
 
 import argparse
 
-N_TRAIN_STEPS = 100_000
+N_TRAIN_STEPS = 50_000
 BATCH_SIZE = 32
 ACCUMULATE_N = 1
 N_SAMPLES_BASE = 64_000
@@ -28,7 +28,7 @@ BETA_2 = 0.999
 WEIGHT_DECAY = 0.01
 
 # lr scheduler
-LR_DECAY_GAMMA = 0.999
+LR_DECAY_GAMMA = 0.9998
 
 # other hyperparams
 EMA_DECAY = 0.999
