@@ -101,7 +101,7 @@ if __name__ == '__main__':
     train_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0,
                               test=False, segment_len=N_SAMPLES_BASE * SEGMENT_LEN_MULTIPLIER, dual_channel=False)
 
-    dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=4)
+    dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=5)
 
     eval_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_testset_wav",
                              segment_len=48000 * 10, test=True, dual_channel=False)
