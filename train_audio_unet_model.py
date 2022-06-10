@@ -11,18 +11,18 @@ import wandb
 
 import argparse
 
-N_TRAIN_STEPS = 1_000
-BATCH_SIZE = 16
-ACCUMULATE_N = 2
+N_TRAIN_STEPS = 10_000
+BATCH_SIZE = 32
+ACCUMULATE_N = 1
 N_SAMPLES_BASE = 64_000
-EVAL_EVERY = 200
+EVAL_EVERY = 2000
 START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 LEARNING_RATE = 3e-3  # experiments found this to be much better than 3e-4
 USE_AMP = False
 # model parameters
-WIDTH = 32
+WIDTH = 16
 N_RES_UNITS = 3
 
 EMA_DECAY = 0.999
