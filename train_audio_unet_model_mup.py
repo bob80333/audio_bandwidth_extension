@@ -120,6 +120,7 @@ if __name__ == '__main__':
         "lr_decay": "exponential",
         "gamma": LR_DECAY_GAMMA,
         "ema_decay": EMA_DECAY,
+        "clip_grad_norm": CLIP_GRAD_NORM,
         "batch_size": BATCH_SIZE,
         "accumulate_n": ACCUMULATE_N,
         "train_segment_len": N_SAMPLES_BASE * SEGMENT_LEN_MULTIPLIER,
