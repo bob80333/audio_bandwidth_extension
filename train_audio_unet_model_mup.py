@@ -13,7 +13,7 @@ from mup import MuAdamW, set_base_shapes
 
 import argparse
 
-N_TRAIN_STEPS = 50_000
+N_TRAIN_STEPS = 100_000
 BATCH_SIZE = 32
 ACCUMULATE_N = 1
 N_SAMPLES_BASE = 64_000
@@ -36,7 +36,7 @@ CLIP_GRAD_NORM = 1.0
 
 USE_AMP = False
 # model parameters
-WIDTH = 4
+WIDTH = 2
 N_RES_UNITS = 3
 
 
