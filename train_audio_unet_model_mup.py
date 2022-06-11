@@ -67,8 +67,11 @@ if __name__ == '__main__':
     parser.add_argument('--n_res_units', type=int, default=N_RES_UNITS)
     parser.add_argument('--ema_decay', type=float, default=EMA_DECAY)
     parser.add_argument('--clip_grad_norm', type=float, default=CLIP_GRAD_NORM)
-    parser.add_argument('prefix', type=str)
-
+    parser.add_argument('--prefix', type=str, default="test_")
+    parser.add_argument("--beta_1", type=float, default=BETA_1)
+    parser.add_argument("--beta_2", type=float, default=BETA_2)
+    parser.add_argument("--weight_decay", type=float, default=WEIGHT_DECAY)
+    parser.add_argument("--gamma", type=float, default=LR_DECAY_GAMMA)
     args = parser.parse_args()
 
     BATCH_SIZE = args.batch_size
@@ -84,6 +87,10 @@ if __name__ == '__main__':
     N_RES_UNITS = args.n_res_units
     EMA_DECAY = args.ema_decay
     CLIP_GRAD_NORM = args.clip_grad_norm
+    BETA_1 = args.beta_1
+    BETA_2 = args.beta_2
+    WEIGHT_DECAY = args.weight_decay
+    LR_DECAY_GAMMA = args.gamma
 
     wandb.init(project="audio-bandwidth-extension", entity="bob80333")
 
