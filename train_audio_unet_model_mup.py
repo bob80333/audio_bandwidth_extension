@@ -36,7 +36,7 @@ CLIP_GRAD_NORM = 1.0
 
 USE_AMP = False
 # model parameters
-WIDTH = 2
+WIDTH = 4
 N_RES_UNITS = 3
 
 
