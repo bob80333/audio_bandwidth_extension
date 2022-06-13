@@ -28,7 +28,7 @@ BETA_2 = 0
 WEIGHT_DECAY = 0.1
 
 # lr scheduler
-LR_DECAY_GAMMA = 0.99995
+LR_DECAY_GAMMA = 0.9998
 
 # other hyperparams
 EMA_DECAY = 0.999
