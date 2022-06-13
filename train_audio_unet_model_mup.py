@@ -22,21 +22,21 @@ START_EMA = 2_000
 STEP = 1
 SEGMENT_LEN_MULTIPLIER = 1
 # optim hyperparams
-LEARNING_RATE = 3e-4
-BETA_1 = 0.9
-BETA_2 = 0.999
-WEIGHT_DECAY = 0.01
+LEARNING_RATE = 0.01
+BETA_1 = 0
+BETA_2 = 0
+WEIGHT_DECAY = 0.1
 
 # lr scheduler
-LR_DECAY_GAMMA = 0.9998
+LR_DECAY_GAMMA = 0.99995
 
 # other hyperparams
 EMA_DECAY = 0.999
-CLIP_GRAD_NORM = 1.0
+CLIP_GRAD_NORM = 2.0
 
 USE_AMP = False
 # model parameters
-WIDTH = 4
+WIDTH = 16
 N_RES_UNITS = 3
 
 
