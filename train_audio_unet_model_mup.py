@@ -268,3 +268,7 @@ if __name__ == '__main__':
         if i == START_EMA:
             # restart EMA
             ema_model = torch_ema.ExponentialMovingAverage(model.parameters(), decay=EMA_DECAY)
+
+    torch.save({"model": model.state_dict()}, args.prefix + NORM_TYPE + "final_audio_unet_bandwidth_extension.pt")
+    with ema_model.average_parameters():
+        torch.save({"model": model.state_dict()}, args.prefix + NORM_TYPE + "final_audio_unet_ema_bandwidth_extension.pt")
