@@ -14,8 +14,8 @@ from mup import MuAdamW, set_base_shapes
 import argparse
 
 N_TRAIN_STEPS = 100_000
-BATCH_SIZE = 16
-ACCUMULATE_N = 2
+BATCH_SIZE = 8
+ACCUMULATE_N = 8
 N_SAMPLES_BASE = 64_000
 EVAL_EVERY = 5000
 START_EMA = 2_000
@@ -36,7 +36,7 @@ CLIP_GRAD_NORM = 2.0
 
 USE_AMP = False
 # model parameters
-WIDTH = 32
+WIDTH = 64
 N_RES_UNITS = 3
 
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
     # clean, then noisy
     # this will be the order the dataloader returns the audio in
-    train_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0,
+    train_data = AudioDataset("D:/speech_enhancement/VCTK_noised/clean_trainset_56spk_wav", aug_prob=0.2,
                               test=False, segment_len=N_SAMPLES_BASE * SEGMENT_LEN_MULTIPLIER, dual_channel=False)
 
     dataloader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True, num_workers=5)

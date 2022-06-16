@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    model = get_model(width=16)
+    model = get_model(width=32)
 
     base_model = get_model(width=1)
     delta_model = get_model(width=2)
